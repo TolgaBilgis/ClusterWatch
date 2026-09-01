@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0a0d10">
+    <title>ClusterWatch</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ClusterWatch home">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span>CLUSTER<span>WATCH</span></span>
+      </a>
+      <div class="live-indicator"><span></span> LIVE <time id="clock">--:--:--</time></div>
+    </header>
+
+    <main id="app" aria-live="polite">
+      <section class="loading-state">
+        <div class="spinner"></div>
+        <p>Connecting to controller…</p>
+      </section>
+    </main>
+
+    <template id="overview-template">
+      <div class="page-shell">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">DISTRIBUTED SYSTEM OVERVIEW</p>
+            <h1>Cluster health</h1>
+            <p class="subtle">Live telemetry and heartbeat status across every registered node.</p>
+          </div>
+          <div class="refresh-note">AUTO-REFRESH <strong>5 SEC</strong></div>
+        </section>
+        <section class="summary-grid" id="summary-grid"></section>
+        <section class="section-heading">
+          <div><p class="eyebrow">NODES</p><h2>Fleet status</h2></div>
+          <span id="last-updated">Updated now</span>
+        </section>
+        <section class="node-grid" id="node-grid"></section>
+      </div>
+    </template>
+
+    <template id="detail-template">
+      <div class="page-shell">
+        <a href="/" class="back-link">← ALL NODES</a>
+        <section class="detail-header" id="detail-header"></section>
+        <section class="metric-strip" id="metric-strip"></section>
+        <section class="chart-grid" id="chart-grid"></section>
+        <section class="detail-grid">
+          <article class="panel"><p class="eyebrow">SYSTEM</p><div id="system-facts" class="facts"></div></article>
+          <article class="panel"><p class="eyebrow">THERMALS</p><div id="thermal-facts" class="facts"></div></article>
+        </section>
+      </div>
+    </template>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

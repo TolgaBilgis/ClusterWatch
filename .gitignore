@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+.env
+data/
+
+# Local Codex/ChatGPT project context (not part of the product)
+AGENTS.md
+sources/
+.agents/
+.codex/
