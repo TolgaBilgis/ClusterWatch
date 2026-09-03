@@ -7,9 +7,3 @@ htmlcov/
 .venv/
 .env
 data/
-
-# Local Codex/ChatGPT project context (not part of the product)
-AGENTS.md
-sources/
-.agents/
-.codex/
