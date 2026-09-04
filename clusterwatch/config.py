@@ -49,6 +49,10 @@ class AgentSettings:
     node_id: str | None
     labels: dict[str, str]
     enable_jetson_telemetry: bool
+    delivery_max_attempts: int = 4
+    delivery_retry_base_seconds: float = 0.5
+    delivery_retry_max_seconds: float = 5.0
+    delivery_retry_jitter: float = 0.2
 
     @classmethod
     def from_env(cls) -> "AgentSettings":
@@ -63,5 +67,8 @@ class AgentSettings:
             node_id=os.getenv("CW_NODE_ID") or None,
             labels=labels,
             enable_jetson_telemetry=_bool("CW_ENABLE_JETSON_TELEMETRY", True),
+            delivery_max_attempts=max(1, _int("CW_DELIVERY_MAX_ATTEMPTS", 4)),
+            delivery_retry_base_seconds=max(0, _float("CW_DELIVERY_RETRY_BASE_SECONDS", 0.5)),
+            delivery_retry_max_seconds=max(0, _float("CW_DELIVERY_RETRY_MAX_SECONDS", 5)),
+            delivery_retry_jitter=min(1, max(0, _float("CW_DELIVERY_RETRY_JITTER", 0.2))),
         )
-

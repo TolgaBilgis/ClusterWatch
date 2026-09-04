@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import platform
+import random
 import socket
 import time
+from collections.abc import Awaitable, Callable
 
 import httpx
 
@@ -21,6 +23,52 @@ class Agent:
         self.node_id = settings.node_id or default_node_id()
         self.collector = TelemetryCollector(settings.enable_jetson_telemetry)
 
+    def _retry_delay(self, failed_attempt: int) -> float:
+        exponential = min(
+            self.settings.delivery_retry_max_seconds,
+            self.settings.delivery_retry_base_seconds * (2 ** (failed_attempt - 1)),
+        )
+        jitter = self.settings.delivery_retry_jitter
+        lower = max(0, exponential * (1 - jitter))
+        upper = min(self.settings.delivery_retry_max_seconds, exponential * (1 + jitter))
+        return random.uniform(lower, upper)
+
+    @staticmethod
+    def _is_retryable(exc: httpx.HTTPError) -> bool:
+        if isinstance(exc, httpx.TransportError):
+            return True
+        return isinstance(exc, httpx.HTTPStatusError) and (
+            exc.response.status_code in {408, 425, 429} or exc.response.status_code >= 500
+        )
+
+    async def _deliver(
+        self,
+        description: str,
+        request: Callable[[], Awaitable[httpx.Response]],
+        allow_not_found: bool = False,
+    ) -> httpx.Response:
+        for attempt in range(1, self.settings.delivery_max_attempts + 1):
+            try:
+                response = await request()
+                if allow_not_found and response.status_code == 404:
+                    return response
+                response.raise_for_status()
+                return response
+            except httpx.HTTPError as exc:
+                if attempt == self.settings.delivery_max_attempts or not self._is_retryable(exc):
+                    raise
+                delay = self._retry_delay(attempt)
+                LOGGER.warning(
+                    "%s failed (attempt %d/%d); retrying in %.2f seconds",
+                    description,
+                    attempt,
+                    self.settings.delivery_max_attempts,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+        raise RuntimeError("delivery retry loop exited unexpectedly")
+
     async def register(self, client: httpx.AsyncClient) -> None:
         payload = {
             "node_id": self.node_id,
@@ -29,8 +77,10 @@ class Agent:
             "capabilities": self.collector.capabilities,
             "agent_version": __version__,
         }
-        response = await client.post("/api/v1/nodes/register", json=payload)
-        response.raise_for_status()
+        await self._deliver(
+            "Node registration",
+            lambda: client.post("/api/v1/nodes/register", json=payload),
+        )
         LOGGER.info("Registered node %s with %s", self.node_id, self.settings.controller_url)
 
     async def send_once(self, client: httpx.AsyncClient) -> None:
@@ -38,17 +88,22 @@ class Agent:
             sample = await asyncio.to_thread(self.collector.collect)
         except Exception as exc:  # the agent must remain alive when one sensor misbehaves
             LOGGER.exception("Metric collection failed")
-            response = await client.post(
-                f"/api/v1/nodes/{self.node_id}/heartbeat",
-                json={"agent_time": time.time(), "collection_error": str(exc)[:500]},
+            payload = {"agent_time": time.time(), "collection_error": str(exc)[:500]}
+            response = await self._deliver(
+                "Heartbeat delivery",
+                lambda: client.post(f"/api/v1/nodes/{self.node_id}/heartbeat", json=payload),
+                allow_not_found=True,
             )
         else:
-            response = await client.post(f"/api/v1/nodes/{self.node_id}/metrics", json=sample)
+            response = await self._deliver(
+                "Telemetry delivery",
+                lambda: client.post(f"/api/v1/nodes/{self.node_id}/metrics", json=sample),
+                allow_not_found=True,
+            )
 
         if response.status_code == 404:
             await self.register(client)
             return
-        response.raise_for_status()
 
     async def serve(self) -> None:
         timeout = httpx.Timeout(10)
@@ -78,4 +133,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-
