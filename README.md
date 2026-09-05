@@ -17,6 +17,7 @@ ClusterWatch demonstrates the control-plane mechanics behind infrastructure moni
 - Shows a responsive cluster overview and per-node charts, with no frontend build step.
 - Handles sensor failures separately from liveness: a failed collection sends a heartbeat carrying the error.
 - Retries transient delivery failures with bounded exponential backoff and jitter.
+- Optionally authenticates agent writes with a shared API key.
 
 ## Dashboard
 
@@ -83,6 +84,7 @@ export CW_CONTROLLER_URL=http://127.0.0.1:8000
 export CW_NODE_ID=jetson-main
 export CW_NODE_LABELS=role=physical,accelerator=jetson
 export CW_ENABLE_JETSON_TELEMETRY=true
+export CW_API_KEY=replace-with-a-long-random-value
 clusterwatch-agent
 ```
 
@@ -114,6 +116,7 @@ Copy `.env.example` to `.env` to customize Compose. Every setting is an environm
 | `CW_DELIVERY_RETRY_BASE_SECONDS` | `0.5` | agent | Initial retry delay before exponential growth |
 | `CW_DELIVERY_RETRY_MAX_SECONDS` | `5` | agent | Upper bound for each retry delay |
 | `CW_DELIVERY_RETRY_JITTER` | `0.2` | agent | Random delay variation from `0` to `1` |
+| `CW_API_KEY` | unset | both | Shared key required for agent write requests when set |
 | `CW_DATABASE_PATH` | `./data/clusterwatch.db` | controller | SQLite database file |
 | `CW_OFFLINE_TIMEOUT_SECONDS` | `15` | controller | Missed-heartbeat deadline |
 | `CW_CPU_WARNING_PERCENT` | `85` | controller | CPU warning threshold |
@@ -125,6 +128,16 @@ Copy `.env.example` to `.env` to customize Compose. Every setting is an environm
 A practical rule is to keep the offline timeout at least two or three times the sample interval to avoid false positives during brief scheduling or network delays.
 
 Agents retry connection failures, timeouts, HTTP `408`, `425`, `429`, and server errors. Other client errors fail immediately. The retry count is bounded per sample so a prolonged outage does not block fresh telemetry forever; after the attempts are exhausted, the regular sampling loop continues.
+
+### Agent authentication
+
+Authentication is disabled when `CW_API_KEY` is unset, preserving the default trusted-LAN setup. To enable it, generate a strong random value and set the same `CW_API_KEY` on the controller and every agent. Compose passes the value to both services from `.env`:
+
+```bash
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
+
+When enabled, registration, metric, and heartbeat requests must include the key in the `X-ClusterWatch-Key` header. Read-only dashboard routes and `/health` remain public. Treat the key as a secret: do not commit a populated `.env` file, and use TLS or a trusted private network because the header itself is not encrypted.
 
 ## API
 
@@ -179,7 +192,7 @@ docker-compose.yml  # controller plus horizontally scalable agents
 - **Controller receipt time for liveness:** avoids trusting node clocks for failure detection. `collected_at` is retained for chart chronology.
 - **Polling dashboard:** five-second polling is reliable and inspectable. WebSockets are useful later, but not required for the MVP's data volume.
 - **One agent artifact:** physical nodes and simulated nodes run the same code. Jetson probes are capability-detected extensions, not a separate agent fork.
-- **No authentication yet:** the MVP is designed for a trusted LAN. Do not expose port 8000 to the public internet without adding TLS and authentication.
+- **Optional shared-key authentication:** one key keeps small trusted clusters simple, while leaving room for per-node identities later. Do not expose port 8000 to the public internet without TLS.
 
 ## Portfolio demo checklist
 

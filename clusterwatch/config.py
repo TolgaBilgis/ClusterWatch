@@ -28,6 +28,7 @@ class ControllerSettings:
     disk_warning_percent: float = 90.0
     temperature_warning_c: float = 80.0
     history_retention_days: int = 7
+    api_key: str | None = None
 
     @classmethod
     def from_env(cls) -> "ControllerSettings":
@@ -39,6 +40,7 @@ class ControllerSettings:
             disk_warning_percent=_float("CW_DISK_WARNING_PERCENT", 90),
             temperature_warning_c=_float("CW_TEMPERATURE_WARNING_C", 80),
             history_retention_days=_int("CW_HISTORY_RETENTION_DAYS", 7),
+            api_key=os.getenv("CW_API_KEY") or None,
         )
 
 
@@ -53,6 +55,7 @@ class AgentSettings:
     delivery_retry_base_seconds: float = 0.5
     delivery_retry_max_seconds: float = 5.0
     delivery_retry_jitter: float = 0.2
+    api_key: str | None = None
 
     @classmethod
     def from_env(cls) -> "AgentSettings":
@@ -71,4 +74,5 @@ class AgentSettings:
             delivery_retry_base_seconds=max(0, _float("CW_DELIVERY_RETRY_BASE_SECONDS", 0.5)),
             delivery_retry_max_seconds=max(0, _float("CW_DELIVERY_RETRY_MAX_SECONDS", 5)),
             delivery_retry_jitter=min(1, max(0, _float("CW_DELIVERY_RETRY_JITTER", 0.2))),
+            api_key=os.getenv("CW_API_KEY") or None,
         )

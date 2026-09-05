@@ -9,6 +9,7 @@ services:
       CW_MEMORY_WARNING_PERCENT: ${CW_MEMORY_WARNING_PERCENT:-85}
       CW_DISK_WARNING_PERCENT: ${CW_DISK_WARNING_PERCENT:-90}
       CW_TEMPERATURE_WARNING_C: ${CW_TEMPERATURE_WARNING_C:-80}
+      CW_API_KEY: ${CW_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:
@@ -28,6 +29,7 @@ services:
       CW_SAMPLE_INTERVAL_SECONDS: ${CW_SAMPLE_INTERVAL_SECONDS:-5}
       CW_NODE_LABELS: role=simulated,runtime=docker
       CW_ENABLE_JETSON_TELEMETRY: "false"
+      CW_API_KEY: ${CW_API_KEY:-}
     depends_on:
       controller:
         condition: service_healthy
@@ -35,4 +37,3 @@ services:
 
 volumes:
   clusterwatch-data:
-

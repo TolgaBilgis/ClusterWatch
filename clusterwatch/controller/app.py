@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -60,6 +61,19 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     app.state.store = store
     app.state.settings = config
 
+    def require_agent_api_key(
+        x_clusterwatch_key: Annotated[str | None, Header()] = None,
+    ) -> None:
+        if config.api_key is None:
+            return
+        if x_clusterwatch_key is None or not secrets.compare_digest(x_clusterwatch_key, config.api_key):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing agent API key",
+            )
+
+    agent_auth = [Depends(require_agent_api_key)]
+
     if dashboard_dir.exists():
         app.mount("/static", StaticFiles(directory=dashboard_dir), name="static")
 
@@ -67,19 +81,34 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.post("/api/v1/nodes/register", status_code=status.HTTP_201_CREATED, tags=["agents"])
+    @app.post(
+        "/api/v1/nodes/register",
+        status_code=status.HTTP_201_CREATED,
+        tags=["agents"],
+        dependencies=agent_auth,
+    )
     def register(payload: Registration, request: Request) -> dict[str, Any]:
         address = request.client.host if request.client else None
         node = store.register(payload, address)
         return {"node": node, "offline_timeout_seconds": config.offline_timeout_seconds}
 
-    @app.post("/api/v1/nodes/{node_id}/metrics", status_code=status.HTTP_202_ACCEPTED, tags=["agents"])
+    @app.post(
+        "/api/v1/nodes/{node_id}/metrics",
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["agents"],
+        dependencies=agent_auth,
+    )
     def ingest_metrics(node_id: str, payload: MetricSample) -> dict[str, bool]:
         if not store.add_metric(node_id, payload):
             raise HTTPException(status_code=404, detail="Node is not registered")
         return {"accepted": True}
 
-    @app.post("/api/v1/nodes/{node_id}/heartbeat", status_code=status.HTTP_202_ACCEPTED, tags=["agents"])
+    @app.post(
+        "/api/v1/nodes/{node_id}/heartbeat",
+        status_code=status.HTTP_202_ACCEPTED,
+        tags=["agents"],
+        dependencies=agent_auth,
+    )
     def heartbeat(node_id: str, payload: Heartbeat) -> dict[str, bool]:
         if not store.heartbeat(node_id, payload.collection_error):
             raise HTTPException(status_code=404, detail="Node is not registered")

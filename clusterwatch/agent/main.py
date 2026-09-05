@@ -23,6 +23,11 @@ class Agent:
         self.node_id = settings.node_id or default_node_id()
         self.collector = TelemetryCollector(settings.enable_jetson_telemetry)
 
+    def _client_headers(self) -> dict[str, str]:
+        if self.settings.api_key is None:
+            return {}
+        return {"X-ClusterWatch-Key": self.settings.api_key}
+
     def _retry_delay(self, failed_attempt: int) -> float:
         exponential = min(
             self.settings.delivery_retry_max_seconds,
@@ -107,7 +112,11 @@ class Agent:
 
     async def serve(self) -> None:
         timeout = httpx.Timeout(10)
-        async with httpx.AsyncClient(base_url=self.settings.controller_url, timeout=timeout) as client:
+        async with httpx.AsyncClient(
+            base_url=self.settings.controller_url,
+            timeout=timeout,
+            headers=self._client_headers(),
+        ) as client:
             while True:
                 try:
                     await self.register(client)

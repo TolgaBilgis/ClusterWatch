@@ -20,6 +20,7 @@ def make_agent(**overrides) -> Agent:
         "delivery_retry_base_seconds": 0.5,
         "delivery_retry_max_seconds": 2.0,
         "delivery_retry_jitter": 0.2,
+        "api_key": None,
     }
     values.update(overrides)
     return Agent(AgentSettings(**values))
