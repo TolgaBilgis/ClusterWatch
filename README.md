@@ -18,6 +18,7 @@ ClusterWatch demonstrates the control-plane mechanics behind infrastructure moni
 - Handles sensor failures separately from liveness: a failed collection sends a heartbeat carrying the error.
 - Retries transient delivery failures with bounded exponential backoff and jitter.
 - Optionally authenticates agent writes with a shared API key.
+- Exposes current cluster and node telemetry in Prometheus text format.
 
 ## Dashboard
 
@@ -150,9 +151,26 @@ When enabled, registration, metric, and heartbeat requests must include the key 
 | `GET` | `/api/v1/nodes/{id}` | Node status and current data |
 | `GET` | `/api/v1/nodes/{id}/metrics` | Bounded historical series |
 | `GET` | `/api/v1/config` | Public health-policy configuration |
+| `GET` | `/metrics` | Prometheus-compatible current metrics |
 | `GET` | `/health` | Controller health probe |
 
 FastAPI generates the exact schemas and an interactive client at `/docs`.
+
+### Prometheus scraping
+
+The controller exposes a dependency-free Prometheus text endpoint at `http://localhost:8000/metrics`. It includes node status counts, heartbeat age, identity, CPU, memory, disk, load averages, network throughput, uptime, temperatures, and numeric Jetson GPU readings. The endpoint exports the latest received sample rather than historical rows.
+
+Add the controller to `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: clusterwatch
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["clusterwatch-controller:8000"]
+```
+
+When Prometheus runs outside the Compose network, replace the target with the controller's reachable host and port. Agent API-key authentication does not restrict `/metrics`; protect the controller at the network or reverse-proxy layer if scrape data should be private.
 
 ## Local development and tests
 
@@ -187,7 +205,7 @@ docker-compose.yml  # controller plus horizontally scalable agents
 
 ## Engineering choices and tradeoffs
 
-- **Push instead of scrape:** agents work across simple networks and naturally carry registration metadata. A future Prometheus endpoint can coexist with this protocol.
+- **Push agents, scrape controller:** agents work across simple networks and carry registration metadata, while Prometheus can scrape one stable controller endpoint.
 - **SQLite first:** WAL mode and a narrow repository layer are enough for one controller and a small cluster. The storage boundary makes PostgreSQL a contained future change.
 - **Controller receipt time for liveness:** avoids trusting node clocks for failure detection. `collected_at` is retained for chart chronology.
 - **Polling dashboard:** five-second polling is reliable and inspectable. WebSockets are useful later, but not required for the MVP's data volume.
@@ -205,7 +223,7 @@ docker-compose.yml  # controller plus horizontally scalable agents
 
 ## Sensible next steps
 
-Good extensions, in order of increasing operational scope: Prometheus export, WebSocket updates, authenticated agents, alert delivery, PostgreSQL, Ansible installation, and Kubernetes manifests. Benchmarking and scheduler integrations should come only after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
+Good extensions, in order of increasing operational scope: live dashboard updates, alert delivery, PostgreSQL, Ansible installation, and Kubernetes manifests. Benchmarking and scheduler integrations should come only after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
 
 ## License
 

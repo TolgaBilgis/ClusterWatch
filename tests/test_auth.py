@@ -44,6 +44,7 @@ def test_agent_endpoints_require_configured_key(settings, registration, metric):
 def test_read_only_endpoints_remain_public_when_auth_is_enabled(settings):
     with TestClient(create_app(replace(settings, api_key="shared-secret"))) as client:
         assert client.get("/health").status_code == 200
+        assert client.get("/metrics").status_code == 200
         assert client.get("/api/v1/nodes").status_code == 200
         assert client.get("/api/v1/config").status_code == 200
 

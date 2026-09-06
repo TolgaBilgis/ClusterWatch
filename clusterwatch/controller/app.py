@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from clusterwatch.config import ControllerSettings
+from clusterwatch.controller.prometheus import CONTENT_TYPE, render_metrics
 from clusterwatch.controller.status import evaluate_status
 from clusterwatch.controller.store import Store
 from clusterwatch.schemas import Heartbeat, MetricSample, Registration
@@ -80,6 +81,11 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/metrics", tags=["system"], response_class=Response)
+    def prometheus_metrics() -> Response:
+        nodes = [_node_view(store, config, node) for node in store.list_nodes()]
+        return Response(render_metrics(nodes), headers={"Content-Type": CONTENT_TYPE})
 
     @app.post(
         "/api/v1/nodes/register",
