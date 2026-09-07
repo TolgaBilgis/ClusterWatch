@@ -1,0 +1,27 @@
+[Unit]
+Description=ClusterWatch monitoring agent
+Documentation=https://github.com/TolgaBilgis/ClusterWatch
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=clusterwatch
+Group=clusterwatch
+WorkingDirectory=/var/lib/clusterwatch
+EnvironmentFile=/etc/clusterwatch/agent.env
+ExecStart=/opt/clusterwatch/venv/bin/clusterwatch-agent
+Restart=always
+RestartSec=5s
+TimeoutStopSec=15s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

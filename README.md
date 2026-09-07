@@ -91,6 +91,8 @@ clusterwatch-agent
 
 For another physical Linux machine, install the same package, set `CW_CONTROLLER_URL` to the Jetson's LAN address (for example `http://192.168.1.20:8000`), choose a unique node ID, and start `clusterwatch-agent`. No controller change is required.
 
+For a persistent host installation, use the provided systemd services and the [Linux and Jetson installation guide](docs/install-linux.md). The controller and agent run as a dedicated unprivileged account, restart after failures, start at boot, and load secrets and settings from protected environment files.
+
 ### Jetson telemetry behavior
 
 The collector uses layers of best-effort detection:
@@ -201,6 +203,7 @@ clusterwatch/
 └── config.py       # environment-based settings
 tests/              # API, policy, and telemetry tests
 docker-compose.yml  # controller plus horizontally scalable agents
+deploy/systemd/     # controller and agent services plus environment templates
 ```
 
 ## Engineering choices and tradeoffs
@@ -223,7 +226,7 @@ docker-compose.yml  # controller plus horizontally scalable agents
 
 ## Sensible next steps
 
-Good extensions, in order of increasing operational scope: live dashboard updates, alert delivery, PostgreSQL, Ansible installation, and Kubernetes manifests. Benchmarking and scheduler integrations should come only after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
+Good extensions, in order of increasing operational scope: repeatable Ansible deployment, live dashboard updates, alert delivery, PostgreSQL, and Kubernetes manifests. Benchmarking and scheduler integrations should come only after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
 
 ## License
 
