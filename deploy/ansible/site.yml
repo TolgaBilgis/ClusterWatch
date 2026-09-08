@@ -1,0 +1,14 @@
+---
+- name: Deploy ClusterWatch controller
+  hosts: controllers
+  become: true
+  roles:
+    - role: clusterwatch
+      clusterwatch_service: controller
+
+- name: Deploy ClusterWatch agents
+  hosts: agents
+  become: true
+  roles:
+    - role: clusterwatch
+      clusterwatch_service: agent

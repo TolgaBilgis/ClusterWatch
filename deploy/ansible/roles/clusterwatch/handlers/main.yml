@@ -1,0 +1,6 @@
+---
+- name: Restart ClusterWatch service
+  ansible.builtin.systemd_service:
+    name: "clusterwatch-{{ clusterwatch_service }}"
+    state: restarted
+    daemon_reload: true

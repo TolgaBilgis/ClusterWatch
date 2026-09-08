@@ -1,0 +1,110 @@
+---
+- name: Validate requested ClusterWatch service
+  ansible.builtin.assert:
+    that:
+      - clusterwatch_service in ["controller", "agent"]
+      - ansible_facts.os_family in ["Debian", "RedHat"]
+    fail_msg: Deployment requires a controller or agent service on a Debian or RedHat family host
+
+- name: Select operating-system packages
+  ansible.builtin.set_fact:
+    clusterwatch_packages: >-
+      {{
+        ['git', 'python3', 'python3-venv']
+        if ansible_facts.os_family == 'Debian'
+        else ['git', 'python3', 'python3-pip']
+      }}
+
+- name: Install operating-system packages
+  ansible.builtin.package:
+    name: "{{ clusterwatch_packages }}"
+    state: present
+
+- name: Create ClusterWatch group
+  ansible.builtin.group:
+    name: "{{ clusterwatch_group }}"
+    system: true
+
+- name: Create ClusterWatch user
+  ansible.builtin.user:
+    name: "{{ clusterwatch_user }}"
+    group: "{{ clusterwatch_group }}"
+    home: "{{ clusterwatch_data_dir }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: true
+
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ clusterwatch_install_root }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ clusterwatch_config_dir }}"
+      owner: root
+      group: "{{ clusterwatch_group }}"
+      mode: "0750"
+    - path: "{{ clusterwatch_data_dir }}"
+      owner: "{{ clusterwatch_user }}"
+      group: "{{ clusterwatch_group }}"
+      mode: "0750"
+
+- name: Check out ClusterWatch source
+  ansible.builtin.git:
+    repo: "{{ clusterwatch_repository_url }}"
+    dest: "{{ clusterwatch_source_dir }}"
+    version: "{{ clusterwatch_repository_version }}"
+    update: true
+  register: clusterwatch_checkout
+  notify: Restart ClusterWatch service
+
+- name: Install ClusterWatch in its virtual environment
+  ansible.builtin.pip:
+    name: "{{ clusterwatch_source_dir }}"
+    virtualenv: "{{ clusterwatch_venv_dir }}"
+    virtualenv_command: "{{ ansible_facts.python.executable }} -m venv"
+    editable: true
+  notify: Restart ClusterWatch service
+
+- name: Install systemd service
+  ansible.builtin.copy:
+    src: "{{ clusterwatch_source_dir }}/deploy/systemd/clusterwatch-{{ clusterwatch_service }}.service"
+    dest: "/etc/systemd/system/clusterwatch-{{ clusterwatch_service }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: true
+  notify: Restart ClusterWatch service
+
+- name: Install service environment
+  ansible.builtin.template:
+    src: "{{ clusterwatch_service }}.env.j2"
+    dest: "{{ clusterwatch_config_dir }}/{{ clusterwatch_service }}.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: "{{ clusterwatch_api_key | length > 0 }}"
+  notify: Restart ClusterWatch service
+
+- name: Record deployed revision for service
+  ansible.builtin.copy:
+    content: "{{ clusterwatch_checkout.after }}\n"
+    dest: "{{ clusterwatch_data_dir }}/.{{ clusterwatch_service }}-revision"
+    owner: "{{ clusterwatch_user }}"
+    group: "{{ clusterwatch_group }}"
+    mode: "0640"
+  when: clusterwatch_checkout.after is defined
+  notify: Restart ClusterWatch service
+
+- name: Enable and start ClusterWatch service
+  ansible.builtin.systemd_service:
+    name: "clusterwatch-{{ clusterwatch_service }}"
+    enabled: true
+    state: started
+    daemon_reload: true

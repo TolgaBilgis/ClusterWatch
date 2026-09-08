@@ -1,0 +1,28 @@
+---
+clusterwatch_repository_url: https://github.com/TolgaBilgis/ClusterWatch.git
+clusterwatch_repository_version: main
+clusterwatch_install_root: /opt/clusterwatch
+clusterwatch_source_dir: "{{ clusterwatch_install_root }}/src"
+clusterwatch_venv_dir: "{{ clusterwatch_install_root }}/venv"
+clusterwatch_config_dir: /etc/clusterwatch
+clusterwatch_data_dir: /var/lib/clusterwatch
+clusterwatch_user: clusterwatch
+clusterwatch_group: clusterwatch
+
+clusterwatch_api_key: ""
+clusterwatch_controller_url: http://127.0.0.1:8000
+clusterwatch_node_id: "{{ inventory_hostname }}"
+clusterwatch_node_labels: role=physical
+clusterwatch_sample_interval_seconds: 5
+clusterwatch_enable_jetson_telemetry: true
+clusterwatch_delivery_max_attempts: 4
+clusterwatch_delivery_retry_base_seconds: 0.5
+clusterwatch_delivery_retry_max_seconds: 5
+clusterwatch_delivery_retry_jitter: 0.2
+
+clusterwatch_offline_timeout_seconds: 15
+clusterwatch_cpu_warning_percent: 85
+clusterwatch_memory_warning_percent: 85
+clusterwatch_disk_warning_percent: 90
+clusterwatch_temperature_warning_c: 80
+clusterwatch_history_retention_days: 7

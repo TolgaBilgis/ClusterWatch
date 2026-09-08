@@ -1,0 +1,18 @@
+all:
+  vars:
+    ansible_user: ubuntu
+    clusterwatch_controller_url: http://192.168.1.20:8000
+    clusterwatch_api_key: ""
+  children:
+    controllers:
+      hosts:
+        jetson-head:
+          ansible_host: 192.168.1.20
+    agents:
+      hosts:
+        jetson-head:
+          ansible_host: 192.168.1.20
+          clusterwatch_node_labels: role=head,accelerator=jetson
+        compute-01:
+          ansible_host: 192.168.1.21
+          clusterwatch_node_labels: role=compute

@@ -7,3 +7,4 @@ htmlcov/
 .venv/
 .env
 data/
+deploy/ansible/inventory.yml
