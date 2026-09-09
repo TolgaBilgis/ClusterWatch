@@ -9,10 +9,11 @@ from typing import Annotated, Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from clusterwatch.config import ControllerSettings
+from clusterwatch.controller.events import EventBroker, event_stream
 from clusterwatch.controller.prometheus import CONTENT_TYPE, render_metrics
 from clusterwatch.controller.status import evaluate_status
 from clusterwatch.controller.store import Store
@@ -34,6 +35,7 @@ def _node_view(store: Store, settings: ControllerSettings, node: dict[str, Any])
 def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     config = settings or ControllerSettings.from_env()
     store = Store(config.database_path)
+    event_broker = EventBroker()
     dashboard_dir = Path(__file__).resolve().parent.parent / "dashboard"
 
     async def maintenance() -> None:
@@ -61,6 +63,7 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     )
     app.state.store = store
     app.state.settings = config
+    app.state.event_broker = event_broker
 
     def require_agent_api_key(
         x_clusterwatch_key: Annotated[str | None, Header()] = None,
@@ -93,9 +96,10 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
         tags=["agents"],
         dependencies=agent_auth,
     )
-    def register(payload: Registration, request: Request) -> dict[str, Any]:
+    async def register(payload: Registration, request: Request) -> dict[str, Any]:
         address = request.client.host if request.client else None
-        node = store.register(payload, address)
+        node = await asyncio.to_thread(store.register, payload, address)
+        await event_broker.publish()
         return {"node": node, "offline_timeout_seconds": config.offline_timeout_seconds}
 
     @app.post(
@@ -104,9 +108,10 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
         tags=["agents"],
         dependencies=agent_auth,
     )
-    def ingest_metrics(node_id: str, payload: MetricSample) -> dict[str, bool]:
-        if not store.add_metric(node_id, payload):
+    async def ingest_metrics(node_id: str, payload: MetricSample) -> dict[str, bool]:
+        if not await asyncio.to_thread(store.add_metric, node_id, payload):
             raise HTTPException(status_code=404, detail="Node is not registered")
+        await event_broker.publish()
         return {"accepted": True}
 
     @app.post(
@@ -115,10 +120,23 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
         tags=["agents"],
         dependencies=agent_auth,
     )
-    def heartbeat(node_id: str, payload: Heartbeat) -> dict[str, bool]:
-        if not store.heartbeat(node_id, payload.collection_error):
+    async def heartbeat(node_id: str, payload: Heartbeat) -> dict[str, bool]:
+        if not await asyncio.to_thread(store.heartbeat, node_id, payload.collection_error):
             raise HTTPException(status_code=404, detail="Node is not registered")
+        await event_broker.publish()
         return {"accepted": True}
+
+    @app.get("/api/v1/events", tags=["dashboard"])
+    async def dashboard_events(request: Request) -> StreamingResponse:
+        return StreamingResponse(
+            event_stream(request, event_broker),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.get("/api/v1/nodes", tags=["dashboard"])
     def list_nodes() -> dict[str, Any]:

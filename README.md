@@ -19,10 +19,11 @@ ClusterWatch demonstrates the control-plane mechanics behind infrastructure moni
 - Retries transient delivery failures with bounded exponential backoff and jitter.
 - Optionally authenticates agent writes with a shared API key.
 - Exposes current cluster and node telemetry in Prometheus text format.
+- Streams controller changes to the dashboard with a polling fallback.
 
 ## Dashboard
 
-The dashboard is available at `http://localhost:8000` after startup. It refreshes every five seconds and includes cluster-wide status counts, per-node summary cards, one-hour CPU/memory/network charts, disk usage, load average, uptime, labels, sensor temperatures, and Jetson GPU readings.
+The dashboard is available at `http://localhost:8000` after startup. It receives server-sent events after agent writes and includes cluster-wide status counts, per-node summary cards, one-hour CPU/memory/network charts, disk usage, load average, uptime, labels, sensor temperatures, and Jetson GPU readings. Browsers without EventSource support, or connections interrupted by a proxy or network failure, automatically fall back to five-second polling while SSE reconnects.
 
 ![Cluster overview dashboard](docs/dashboard.png)
 
@@ -155,6 +156,7 @@ When enabled, registration, metric, and heartbeat requests must include the key 
 | `GET` | `/api/v1/nodes/{id}` | Node status and current data |
 | `GET` | `/api/v1/nodes/{id}/metrics` | Bounded historical series |
 | `GET` | `/api/v1/config` | Public health-policy configuration |
+| `GET` | `/api/v1/events` | Server-sent dashboard update notifications |
 | `GET` | `/metrics` | Prometheus-compatible current metrics |
 | `GET` | `/health` | Controller health probe |
 
@@ -214,7 +216,7 @@ deploy/ansible/     # repeatable controller and agent deployment
 - **Push agents, scrape controller:** agents work across simple networks and carry registration metadata, while Prometheus can scrape one stable controller endpoint.
 - **SQLite first:** WAL mode and a narrow repository layer are enough for one controller and a small cluster. The storage boundary makes PostgreSQL a contained future change.
 - **Controller receipt time for liveness:** avoids trusting node clocks for failure detection. `collected_at` is retained for chart chronology.
-- **Polling dashboard:** five-second polling is reliable and inspectable. WebSockets are useful later, but not required for the MVP's data volume.
+- **SSE with polling fallback:** one-way update notifications avoid needless polling during normal operation, while native EventSource reconnection and five-second polling preserve updates across transient failures and incompatible proxies.
 - **One agent artifact:** physical nodes and simulated nodes run the same code. Jetson probes are capability-detected extensions, not a separate agent fork.
 - **Optional shared-key authentication:** one key keeps small trusted clusters simple, while leaving room for per-node identities later. Do not expose port 8000 to the public internet without TLS.
 
@@ -229,7 +231,7 @@ deploy/ansible/     # repeatable controller and agent deployment
 
 ## Sensible next steps
 
-Good extensions, in order of increasing operational scope: live dashboard updates, alert delivery, PostgreSQL, and Kubernetes manifests. Benchmarking and scheduler integrations should come only after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
+Good extensions, in order of increasing operational scope: alert delivery, scheduler integrations, PostgreSQL, and Kubernetes manifests. Benchmarking should come after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
 
 ## License
 

@@ -1,6 +1,10 @@
 const app = document.querySelector("#app");
 const REFRESH_MS = 5000;
 let refreshTimer;
+let eventSource;
+let eventsConnected = false;
+let refreshInFlight = false;
+let refreshQueued = false;
 
 const esc = (value) => String(value ?? "—").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 const pct = value => value == null ? "—" : `${Number(value).toFixed(1)}%`;
@@ -121,16 +125,55 @@ async function renderDetail(nodeId, initial = true) {
 }
 
 async function route(initial = true) {
-  clearTimeout(refreshTimer);
+  if (refreshInFlight) {
+    refreshQueued = true;
+    return;
+  }
+  refreshInFlight = true;
   try {
     const match = location.pathname.match(/^\/nodes\/([^/]+)$/);
     if (match) await renderDetail(decodeURIComponent(match[1]), initial); else await renderOverview(initial);
   } catch (error) {
     if (initial) app.innerHTML = `<section class="error-state"><h2>Controller unavailable</h2><p>${esc(error.message)}</p></section>`;
+  } finally {
+    refreshInFlight = false;
+    if (refreshQueued) {
+      refreshQueued = false;
+      route(false);
+    }
   }
-  refreshTimer = setTimeout(() => route(false), REFRESH_MS);
+}
+
+function stopPolling() {
+  clearTimeout(refreshTimer);
+  refreshTimer = undefined;
+}
+
+function schedulePolling() {
+  stopPolling();
+  refreshTimer = setTimeout(async () => {
+    await route(false);
+    if (!eventsConnected) schedulePolling();
+  }, REFRESH_MS);
+}
+
+function connectEventStream() {
+  if (!("EventSource" in window)) {
+    schedulePolling();
+    return;
+  }
+
+  eventSource = new EventSource("/api/v1/events");
+  eventSource.onopen = () => {
+    eventsConnected = true;
+    stopPolling();
+  };
+  eventSource.addEventListener("cluster-update", () => route(false));
+  eventSource.onerror = () => {
+    eventsConnected = false;
+    schedulePolling();
+  };
 }
 
 window.addEventListener("resize", () => route(false));
-route();
-
+route().finally(connectEventStream);
