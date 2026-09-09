@@ -29,8 +29,6 @@ The dashboard is available at `http://localhost:8000` after startup. It receives
 
 ![Per-node telemetry and history](docs/node-detail.png)
 
-These screenshots come from a local smoke test. Replace them with a populated Jetson-plus-containers run before publishing for stronger portfolio evidence.
-
 ## Architecture
 
 ```text
