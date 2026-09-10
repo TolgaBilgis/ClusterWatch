@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from clusterwatch.config import ControllerSettings
+from clusterwatch.controller.alerts import AlertManager
 from clusterwatch.controller.events import EventBroker, event_stream
 from clusterwatch.controller.prometheus import CONTENT_TYPE, render_metrics
 from clusterwatch.controller.status import evaluate_status
@@ -36,6 +37,7 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     config = settings or ControllerSettings.from_env()
     store = Store(config.database_path)
     event_broker = EventBroker()
+    alert_manager = AlertManager(store, config)
     dashboard_dir = Path(__file__).resolve().parent.parent / "dashboard"
 
     async def maintenance() -> None:
@@ -46,14 +48,16 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        task = asyncio.create_task(maintenance())
-        yield
-        task.cancel()
+        tasks = [asyncio.create_task(maintenance())]
+        if alert_manager.enabled:
+            tasks.append(asyncio.create_task(alert_manager.run()))
         try:
-            await task
-        except asyncio.CancelledError:
-            pass
-        store.close()
+            yield
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            store.close()
 
     app = FastAPI(
         title="ClusterWatch Controller API",
@@ -64,6 +68,7 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
     app.state.store = store
     app.state.settings = config
     app.state.event_broker = event_broker
+    app.state.alert_manager = alert_manager
 
     def require_agent_api_key(
         x_clusterwatch_key: Annotated[str | None, Header()] = None,
@@ -100,6 +105,7 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
         address = request.client.host if request.client else None
         node = await asyncio.to_thread(store.register, payload, address)
         await event_broker.publish()
+        alert_manager.notify()
         return {"node": node, "offline_timeout_seconds": config.offline_timeout_seconds}
 
     @app.post(
@@ -112,6 +118,7 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
         if not await asyncio.to_thread(store.add_metric, node_id, payload):
             raise HTTPException(status_code=404, detail="Node is not registered")
         await event_broker.publish()
+        alert_manager.notify()
         return {"accepted": True}
 
     @app.post(
@@ -124,6 +131,7 @@ def create_app(settings: ControllerSettings | None = None) -> FastAPI:
         if not await asyncio.to_thread(store.heartbeat, node_id, payload.collection_error):
             raise HTTPException(status_code=404, detail="Node is not registered")
         await event_broker.publish()
+        alert_manager.notify()
         return {"accepted": True}
 
     @app.get("/api/v1/events", tags=["dashboard"])

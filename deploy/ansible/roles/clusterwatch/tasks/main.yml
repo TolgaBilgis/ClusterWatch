@@ -89,7 +89,7 @@
     owner: root
     group: root
     mode: "0600"
-  no_log: "{{ clusterwatch_api_key | length > 0 }}"
+  no_log: "{{ clusterwatch_api_key | length > 0 or clusterwatch_alert_webhook_url | length > 0 }}"
   notify: Restart ClusterWatch service
 
 - name: Record deployed revision for service

@@ -29,6 +29,9 @@ class ControllerSettings:
     temperature_warning_c: float = 80.0
     history_retention_days: int = 7
     api_key: str | None = None
+    alert_webhook_url: str | None = None
+    alert_cooldown_seconds: float = 300.0
+    alert_check_interval_seconds: float = 5.0
 
     @classmethod
     def from_env(cls) -> "ControllerSettings":
@@ -41,6 +44,9 @@ class ControllerSettings:
             temperature_warning_c=_float("CW_TEMPERATURE_WARNING_C", 80),
             history_retention_days=_int("CW_HISTORY_RETENTION_DAYS", 7),
             api_key=os.getenv("CW_API_KEY") or None,
+            alert_webhook_url=os.getenv("CW_ALERT_WEBHOOK_URL") or None,
+            alert_cooldown_seconds=max(0, _float("CW_ALERT_COOLDOWN_SECONDS", 300)),
+            alert_check_interval_seconds=max(0.1, _float("CW_ALERT_CHECK_INTERVAL_SECONDS", 5)),
         )
 
 

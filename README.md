@@ -20,6 +20,7 @@ ClusterWatch demonstrates the control-plane mechanics behind infrastructure moni
 - Optionally authenticates agent writes with a shared API key.
 - Exposes current cluster and node telemetry in Prometheus text format.
 - Streams controller changes to the dashboard with a polling fallback.
+- Sends optional status-change webhooks with per-node cooldown protection.
 
 ## Dashboard
 
@@ -128,6 +129,9 @@ Copy `.env.example` to `.env` to customize Compose. Every setting is an environm
 | `CW_DISK_WARNING_PERCENT` | `90` | controller | Disk warning threshold |
 | `CW_TEMPERATURE_WARNING_C` | `80` | controller | Sensor/GPU warning threshold |
 | `CW_HISTORY_RETENTION_DAYS` | `7` | controller | Metric retention window |
+| `CW_ALERT_WEBHOOK_URL` | unset | controller | JSON webhook for status changes |
+| `CW_ALERT_COOLDOWN_SECONDS` | `300` | controller | Minimum time between repeated alerts for one node and status |
+| `CW_ALERT_CHECK_INTERVAL_SECONDS` | `5` | controller | Interval for detecting nodes that become offline |
 
 A practical rule is to keep the offline timeout at least two or three times the sample interval to avoid false positives during brief scheduling or network delays.
 
@@ -142,6 +146,12 @@ python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
 
 When enabled, registration, metric, and heartbeat requests must include the key in the `X-ClusterWatch-Key` header. Read-only dashboard routes and `/health` remain public. Treat the key as a secret: do not commit a populated `.env` file, and use TLS or a trusted private network because the header itself is not encrypted.
+
+### Alert webhooks
+
+Set `CW_ALERT_WEBHOOK_URL` on the controller to receive an HTTP `POST` when a node enters `WARNING` or `OFFLINE`, and again when it recovers to `HEALTHY`. New registrations waiting for their first sample do not create alerts. The JSON body contains `event`, `node_id`, `hostname`, `status`, `previous_status`, `reasons`, and `observed_at` fields.
+
+`CW_ALERT_COOLDOWN_SECONDS` suppresses repeated delivery for the same node and status during flapping. Failed requests are logged, do not reject agent telemetry, and are not attempted again until the cooldown expires. Keep credentials in the webhook URL out of version control and use an HTTPS receiver.
 
 ## API
 
@@ -229,7 +239,7 @@ deploy/ansible/     # repeatable controller and agent deployment
 
 ## Sensible next steps
 
-Good extensions, in order of increasing operational scope: alert delivery, scheduler integrations, PostgreSQL, and Kubernetes manifests. Benchmarking should come after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
+Good extensions, in order of increasing operational scope: scheduler integrations, PostgreSQL, and Kubernetes manifests. Benchmarking should come after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
 
 ## License
 

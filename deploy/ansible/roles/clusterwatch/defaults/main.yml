@@ -10,6 +10,9 @@ clusterwatch_user: clusterwatch
 clusterwatch_group: clusterwatch
 
 clusterwatch_api_key: ""
+clusterwatch_alert_webhook_url: ""
+clusterwatch_alert_cooldown_seconds: 300
+clusterwatch_alert_check_interval_seconds: 5
 clusterwatch_controller_url: http://127.0.0.1:8000
 clusterwatch_node_id: "{{ inventory_hostname }}"
 clusterwatch_node_labels: role=physical
