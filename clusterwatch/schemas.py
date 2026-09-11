@@ -3,6 +3,23 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class SlurmJob(BaseModel):
+    job_id: str = Field(max_length=64)
+    user: str = Field(max_length=128)
+    name: str = Field(max_length=256)
+    state: str = Field(max_length=64)
+
+
+class SlurmTelemetry(BaseModel):
+    node_name: str = Field(max_length=255)
+    node_state: str | None = Field(default=None, max_length=128)
+    reason: str | None = Field(default=None, max_length=500)
+    allocated_cpus: int | None = Field(default=None, ge=0)
+    total_cpus: int | None = Field(default=None, ge=0)
+    running_jobs: list[SlurmJob] | None = Field(default=None, max_length=100)
+    jobs_truncated: bool = False
+
+
 class Registration(BaseModel):
     node_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
     hostname: str = Field(min_length=1, max_length=255)
@@ -28,9 +45,9 @@ class MetricSample(BaseModel):
     network_tx_bytes_per_sec: float = Field(ge=0)
     temperatures_c: dict[str, float] = Field(default_factory=dict)
     gpu: dict[str, float | str | None] = Field(default_factory=dict)
+    slurm: SlurmTelemetry | None = None
 
 
 class Heartbeat(BaseModel):
     agent_time: float
     collection_error: str | None = Field(default=None, max_length=500)
-

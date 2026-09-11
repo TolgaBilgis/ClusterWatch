@@ -12,15 +12,23 @@ from typing import Any
 
 import psutil
 
+from clusterwatch.agent.slurm import SlurmCollector
+
 
 class TelemetryCollector:
-    """Collect Linux telemetry, with optional best-effort NVIDIA Jetson data."""
+    """Collect Linux telemetry with optional best-effort Jetson and Slurm data."""
 
-    def __init__(self, enable_jetson: bool = True):
+    def __init__(
+        self,
+        enable_jetson: bool = True,
+        enable_slurm: bool = False,
+        slurm_node_name: str | None = None,
+    ):
         network = psutil.net_io_counters()
         self._last_network = (network.bytes_recv, network.bytes_sent, time.monotonic())
         self.enable_jetson = enable_jetson
         self._tegrastats = shutil.which("tegrastats") if enable_jetson else None
+        self._slurm = SlurmCollector(enable_slurm, slurm_node_name)
         psutil.cpu_percent(interval=None)
 
     @property
@@ -29,6 +37,7 @@ class TelemetryCollector:
             "linux_metrics": True,
             "temperatures": bool(self._read_temperatures()),
             "jetson": bool(self._tegrastats or self._jetson_gpu_load_path()),
+            "slurm": self._slurm.available,
         }
 
     def collect(self) -> dict[str, Any]:
@@ -61,6 +70,7 @@ class TelemetryCollector:
             "network_tx_bytes_per_sec": max(0, network.bytes_sent - previous_tx) / elapsed,
             "temperatures_c": temperatures,
             "gpu": gpu,
+            "slurm": self._slurm.collect(),
         }
 
     @staticmethod

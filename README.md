@@ -21,6 +21,7 @@ ClusterWatch demonstrates the control-plane mechanics behind infrastructure moni
 - Exposes current cluster and node telemetry in Prometheus text format.
 - Streams controller changes to the dashboard with a polling fallback.
 - Sends optional status-change webhooks with per-node cooldown protection.
+- Optionally reports Slurm node allocation and running-job telemetry.
 
 ## Dashboard
 
@@ -106,6 +107,12 @@ The collector uses layers of best-effort detection:
 
 Non-Jetson Linux hosts and containers simply return an empty GPU object. Missing vendor telemetry never prevents ordinary metrics from being reported.
 
+### Slurm telemetry
+
+Set `CW_ENABLE_SLURM_TELEMETRY=true` on an agent whose host has Slurm client commands configured. The agent uses `scontrol` to report node state, reason, allocated CPUs, and total CPUs, and `squeue` to report up to 100 running jobs allocated to that node. If the Slurm `NodeName` differs from `CW_NODE_ID`, set `CW_SLURM_NODE_NAME` explicitly.
+
+The collector has no Slurm library dependency. Each probe can return partial data independently; if neither command succeeds, the agent sends `slurm: null`. Missing commands, controller outages, permission errors, nonzero exits, and command timeouts never interrupt Linux or Jetson telemetry. Collected data appears in the node API and detail dashboard; CPU allocation and running-job count are also exported through `/metrics`. Job names and usernames are visible through the read-only API, so protect the controller network when that metadata is sensitive.
+
 ## Configuration
 
 Copy `.env.example` to `.env` to customize Compose. Every setting is an environment variable.
@@ -117,6 +124,8 @@ Copy `.env.example` to `.env` to customize Compose. Every setting is an environm
 | `CW_NODE_LABELS` | empty | agent | Comma-separated `key=value` metadata |
 | `CW_SAMPLE_INTERVAL_SECONDS` | `5` | agent | Collection and delivery interval |
 | `CW_ENABLE_JETSON_TELEMETRY` | `true` | agent | Enable NVIDIA Jetson probes |
+| `CW_ENABLE_SLURM_TELEMETRY` | `false` | agent | Enable best-effort `scontrol` and `squeue` probes |
+| `CW_SLURM_NODE_NAME` | node ID | agent | Slurm node name when it differs from the agent ID |
 | `CW_DELIVERY_MAX_ATTEMPTS` | `4` | agent | Maximum attempts for each registration or delivery |
 | `CW_DELIVERY_RETRY_BASE_SECONDS` | `0.5` | agent | Initial retry delay before exponential growth |
 | `CW_DELIVERY_RETRY_MAX_SECONDS` | `5` | agent | Upper bound for each retry delay |
@@ -172,7 +181,7 @@ FastAPI generates the exact schemas and an interactive client at `/docs`.
 
 ### Prometheus scraping
 
-The controller exposes a dependency-free Prometheus text endpoint at `http://localhost:8000/metrics`. It includes node status counts, heartbeat age, identity, CPU, memory, disk, load averages, network throughput, uptime, temperatures, and numeric Jetson GPU readings. The endpoint exports the latest received sample rather than historical rows.
+The controller exposes a dependency-free Prometheus text endpoint at `http://localhost:8000/metrics`. It includes node status counts, heartbeat age, identity, CPU, memory, disk, load averages, network throughput, uptime, temperatures, numeric Jetson GPU readings, and optional Slurm allocation summaries. The endpoint exports the latest received sample rather than historical rows.
 
 Add the controller to `prometheus.yml`:
 
@@ -239,7 +248,7 @@ deploy/ansible/     # repeatable controller and agent deployment
 
 ## Sensible next steps
 
-Good extensions, in order of increasing operational scope: scheduler integrations, PostgreSQL, and Kubernetes manifests. Benchmarking should come after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
+Good extensions, in order of increasing operational scope: PostgreSQL and Kubernetes manifests. Benchmarking should come after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
 
 ## License
 

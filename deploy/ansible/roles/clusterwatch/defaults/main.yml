@@ -18,6 +18,8 @@ clusterwatch_node_id: "{{ inventory_hostname }}"
 clusterwatch_node_labels: role=physical
 clusterwatch_sample_interval_seconds: 5
 clusterwatch_enable_jetson_telemetry: true
+clusterwatch_enable_slurm_telemetry: false
+clusterwatch_slurm_node_name: ""
 clusterwatch_delivery_max_attempts: 4
 clusterwatch_delivery_retry_base_seconds: 0.5
 clusterwatch_delivery_retry_max_seconds: 5

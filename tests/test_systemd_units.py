@@ -44,6 +44,7 @@ def test_environment_templates_cover_required_service_settings():
     assert "CW_DATABASE_PATH=/var/lib/clusterwatch/clusterwatch.db" in controller
     assert "CW_CONTROLLER_URL=http://127.0.0.1:8000" in agent
     assert "CW_ENABLE_JETSON_TELEMETRY=true" in agent
+    assert "CW_ENABLE_SLURM_TELEMETRY=false" in agent
     assert "CW_API_KEY=" in controller
     assert "CW_ALERT_WEBHOOK_URL=" in controller
     assert "CW_API_KEY=" in agent

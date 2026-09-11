@@ -32,6 +32,8 @@ services:
       CW_SAMPLE_INTERVAL_SECONDS: ${CW_SAMPLE_INTERVAL_SECONDS:-5}
       CW_NODE_LABELS: role=simulated,runtime=docker
       CW_ENABLE_JETSON_TELEMETRY: "false"
+      CW_ENABLE_SLURM_TELEMETRY: ${CW_ENABLE_SLURM_TELEMETRY:-false}
+      CW_SLURM_NODE_NAME: ${CW_SLURM_NODE_NAME:-}
       CW_API_KEY: ${CW_API_KEY:-}
     depends_on:
       controller:

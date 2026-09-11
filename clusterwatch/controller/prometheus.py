@@ -173,4 +173,34 @@ def render_metrics(nodes: list[dict[str, Any]]) -> str:
             )
         )
 
+    slurm_nodes = [node for node in latest_nodes if node["latest"].get("slurm") is not None]
+    slurm_job_nodes = [
+        node for node in slurm_nodes if isinstance(node["latest"]["slurm"].get("running_jobs"), list)
+    ]
+    lines.extend(
+        _family(
+            "clusterwatch_node_slurm_cpus",
+            "Latest Slurm CPU count by allocation kind.",
+            (
+                ({**_node_labels(node), "kind": kind}, value)
+                for node in slurm_nodes
+                for kind, value in (
+                    ("allocated", node["latest"]["slurm"].get("allocated_cpus")),
+                    ("total", node["latest"]["slurm"].get("total_cpus")),
+                )
+                if isinstance(value, int)
+            ),
+        )
+    )
+    lines.extend(
+        _family(
+            "clusterwatch_node_slurm_running_jobs",
+            "Latest number of running Slurm jobs reported for a node.",
+            (
+                (_node_labels(node), len(node["latest"]["slurm"].get("running_jobs", [])))
+                for node in slurm_job_nodes
+            ),
+        )
+    )
+
     return "\n".join(lines) + "\n"

@@ -62,6 +62,8 @@ class AgentSettings:
     delivery_retry_max_seconds: float = 5.0
     delivery_retry_jitter: float = 0.2
     api_key: str | None = None
+    enable_slurm_telemetry: bool = False
+    slurm_node_name: str | None = None
 
     @classmethod
     def from_env(cls) -> "AgentSettings":
@@ -81,4 +83,6 @@ class AgentSettings:
             delivery_retry_max_seconds=max(0, _float("CW_DELIVERY_RETRY_MAX_SECONDS", 5)),
             delivery_retry_jitter=min(1, max(0, _float("CW_DELIVERY_RETRY_JITTER", 0.2))),
             api_key=os.getenv("CW_API_KEY") or None,
+            enable_slurm_telemetry=_bool("CW_ENABLE_SLURM_TELEMETRY", False),
+            slurm_node_name=os.getenv("CW_SLURM_NODE_NAME") or None,
         )

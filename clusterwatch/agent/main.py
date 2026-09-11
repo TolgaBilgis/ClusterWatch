@@ -21,7 +21,11 @@ class Agent:
     def __init__(self, settings: AgentSettings):
         self.settings = settings
         self.node_id = settings.node_id or default_node_id()
-        self.collector = TelemetryCollector(settings.enable_jetson_telemetry)
+        self.collector = TelemetryCollector(
+            settings.enable_jetson_telemetry,
+            settings.enable_slurm_telemetry,
+            settings.slurm_node_name or self.node_id,
+        )
 
     def _client_headers(self) -> dict[str, str]:
         if self.settings.api_key is None:

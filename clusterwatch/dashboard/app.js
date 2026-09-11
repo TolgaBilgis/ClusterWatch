@@ -122,6 +122,18 @@ async function renderDetail(nodeId, initial = true) {
   if (metric?.gpu?.utilization_percent != null) thermals.unshift(["GPU utilization", pct(metric.gpu.utilization_percent)]);
   if (metric?.gpu?.temperature_c != null) thermals.unshift(["GPU temperature", `${metric.gpu.temperature_c.toFixed(1)}°C`]);
   document.querySelector("#thermal-facts").innerHTML = thermals.length ? thermals.map(item => fact(...item)).join("") : fact("Sensors", "Not exposed by this node");
+  const slurmPanel = document.querySelector("#slurm-panel");
+  const slurm = metric?.slurm;
+  slurmPanel.hidden = !slurm;
+  if (slurm) {
+    const cpuAllocation = slurm.allocated_cpus == null || slurm.total_cpus == null ? "—" : `${slurm.allocated_cpus} / ${slurm.total_cpus}`;
+    const jobsAvailable = Array.isArray(slurm.running_jobs);
+    const jobs = (slurm.running_jobs || []).map(job => fact(`Job ${job.job_id}`, `${job.state} · ${job.user} · ${job.name}`));
+    document.querySelector("#slurm-facts").innerHTML = [
+      fact("Node", slurm.node_name), fact("State", slurm.node_state || "—"), fact("Allocated CPUs", cpuAllocation),
+      fact("Reason", slurm.reason || "—"), fact("Running jobs", jobsAvailable ? slurm.running_jobs.length : "Unavailable"), ...jobs
+    ].join("");
+  }
 }
 
 async function route(initial = true) {

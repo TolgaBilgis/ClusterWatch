@@ -75,6 +75,8 @@ journalctl -u clusterwatch-agent -f
 
 On a Jetson, keep `CW_ENABLE_JETSON_TELEMETRY=true`. The agent automatically uses accessible thermal sysfs entries and `tegrastats`; it continues with standard Linux telemetry if either source is unavailable. To run the controller and agent on the same Jetson, configure the agent with `CW_CONTROLLER_URL=http://127.0.0.1:8000` and enable both services.
 
+On a Slurm compute node, set `CW_ENABLE_SLURM_TELEMETRY=true` in `/etc/clusterwatch/agent.env`. The service account must be able to run the cluster's configured `scontrol` and `squeue` commands. Set `CW_SLURM_NODE_NAME` when the scheduler's node name differs from `CW_NODE_ID`; leave it empty otherwise. Missing or unreachable Slurm commands do not interrupt standard host telemetry.
+
 ## Upgrade
 
 Pull the latest code, reinstall it into the existing virtual environment, and restart the installed services:

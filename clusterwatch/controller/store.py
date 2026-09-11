@@ -55,12 +55,16 @@ class Store:
                     network_rx_bytes_per_sec REAL NOT NULL,
                     network_tx_bytes_per_sec REAL NOT NULL,
                     temperatures_json TEXT NOT NULL,
-                    gpu_json TEXT NOT NULL
+                    gpu_json TEXT NOT NULL,
+                    slurm_json TEXT NOT NULL DEFAULT 'null'
                 );
                 CREATE INDEX IF NOT EXISTS idx_metrics_node_time
                     ON metrics(node_id, collected_at DESC);
                 """
             )
+            columns = {row["name"] for row in self._connection.execute("PRAGMA table_info(metrics)")}
+            if "slurm_json" not in columns:
+                self._connection.execute("ALTER TABLE metrics ADD COLUMN slurm_json TEXT NOT NULL DEFAULT 'null'")
 
     @staticmethod
     def _decode_node(row: sqlite3.Row) -> dict[str, Any]:
@@ -74,6 +78,7 @@ class Store:
         item = dict(row)
         item["temperatures_c"] = json.loads(item.pop("temperatures_json"))
         item["gpu"] = json.loads(item.pop("gpu_json"))
+        item["slurm"] = json.loads(item.pop("slurm_json"))
         return item
 
     def register(self, registration: Registration, address: str | None, now: float | None = None) -> dict[str, Any]:
@@ -129,8 +134,8 @@ class Store:
                     memory_used_bytes, memory_total_bytes, disk_percent, disk_used_bytes,
                     disk_total_bytes, load_1, load_5, load_15, uptime_seconds,
                     network_rx_bytes_per_sec, network_tx_bytes_per_sec,
-                    temperatures_json, gpu_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    temperatures_json, gpu_json, slurm_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     node_id,
@@ -151,6 +156,7 @@ class Store:
                     values["network_tx_bytes_per_sec"],
                     json.dumps(values["temperatures_c"], sort_keys=True),
                     json.dumps(values["gpu"], sort_keys=True),
+                    json.dumps(values["slurm"], sort_keys=True),
                 ),
             )
             self._connection.execute(
@@ -195,4 +201,3 @@ class Store:
     def close(self) -> None:
         with self._lock:
             self._connection.close()
-

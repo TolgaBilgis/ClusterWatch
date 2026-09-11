@@ -11,4 +11,4 @@ def test_collector_returns_schema_compatible_linux_metrics():
     assert sample["disk_total_bytes"] > 0
     assert sample["network_rx_bytes_per_sec"] >= 0
     assert sample["gpu"] == {}
-
+    assert sample["slurm"] is None

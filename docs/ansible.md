@@ -50,6 +50,8 @@ Useful variables include:
 | `clusterwatch_node_id` | inventory hostname | Stable agent identity |
 | `clusterwatch_node_labels` | `role=physical` | Agent labels |
 | `clusterwatch_enable_jetson_telemetry` | `true` | Enable best-effort Jetson probes |
+| `clusterwatch_enable_slurm_telemetry` | `false` | Enable best-effort Slurm probes |
+| `clusterwatch_slurm_node_name` | empty | Override the scheduler node name |
 
 Controller thresholds, sample timing, retry behavior, paths, and repository URL are also configurable in `roles/clusterwatch/defaults/main.yml`.
 
