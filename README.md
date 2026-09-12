@@ -22,6 +22,7 @@ ClusterWatch demonstrates the control-plane mechanics behind infrastructure moni
 - Streams controller changes to the dashboard with a polling fallback.
 - Sends optional status-change webhooks with per-node cooldown protection.
 - Optionally reports Slurm node allocation and running-job telemetry.
+- Includes a reproducible controller ingestion benchmark with JSON results.
 
 ## Dashboard
 
@@ -213,6 +214,12 @@ CW_NODE_ID=local-dev clusterwatch-agent
 
 The tests cover registration, ingestion, chronological history, threshold warnings, heartbeat fallback, Jetson GPU temperature policy, and missed-heartbeat offline transitions. GitHub Actions runs the suite on every push and pull request.
 
+## Load testing
+
+Use `python scripts/load_test.py` to benchmark the controller's complete HTTP and SQLite metric-ingestion path with deterministic simulated telemetry. The script performs an untimed warm-up and reports request throughput, errors, and mean, p50, p95, p99, and maximum latency as JSON.
+
+Run it only against an isolated controller because it intentionally creates node and metric records. The [benchmark procedure](docs/benchmark.md) provides a fixed baseline command, fresh-database setup, authentication instructions, repeat-trial guidance, and interpretation notes.
+
 ## Repository layout
 
 ```text
@@ -226,6 +233,7 @@ tests/              # API, policy, and telemetry tests
 docker-compose.yml  # controller plus horizontally scalable agents
 deploy/systemd/     # controller and agent services plus environment templates
 deploy/ansible/     # repeatable controller and agent deployment
+scripts/            # reproducible controller ingestion load test
 ```
 
 ## Engineering choices and tradeoffs
@@ -248,7 +256,7 @@ deploy/ansible/     # repeatable controller and agent deployment
 
 ## Sensible next steps
 
-Good extensions, in order of increasing operational scope: PostgreSQL and Kubernetes manifests. Benchmarking should come after the monitoring path is stable; ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
+Good extensions, in order of increasing operational scope: PostgreSQL and Kubernetes manifests. ClusterWatch is a credible control-plane project without pretending container replicas provide real HPC scaling.
 
 ## License
 
